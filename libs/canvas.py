@@ -1,4 +1,3 @@
-
 try:
     from PyQt5.QtGui import *
     from PyQt5.QtCore import *
@@ -7,7 +6,7 @@ except ImportError:
     from PyQt4.QtGui import *
     from PyQt4.QtCore import *
 
-#from PyQt4.QtOpenGL import *
+# from PyQt4.QtOpenGL import *
 
 from libs.shape import Shape
 from libs.lib import distance
@@ -17,6 +16,7 @@ CURSOR_POINT = Qt.PointingHandCursor
 CURSOR_DRAW = Qt.CrossCursor
 CURSOR_MOVE = Qt.ClosedHandCursor
 CURSOR_GRAB = Qt.OpenHandCursor
+
 
 # class Canvas(QGLWidget):
 
@@ -42,8 +42,11 @@ class Canvas(QWidget):
         self.selectedShape = None  # save the selected shape here
         self.selectedShapeCopy = None
         self.drawingLineColor = QColor(0, 0, 255)
-        self.drawingRectColor = QColor(0, 0, 255) 
+        self.drawingRectColor = QColor(0, 0, 255)
         self.line = Shape(line_color=self.drawingLineColor)
+        self.lastline = Shape(line_color=self.drawingLineColor)
+        self.lastline.addPoint(QPointF(0, 0))
+        self.lastline.addPoint(QPointF(0, 0))
         self.prevPoint = QPointF()
         self.offsets = QPointF(), QPointF()
         self.scale = 1.0
@@ -128,6 +131,7 @@ class Canvas(QWidget):
                     self.current.highlightVertex(0, Shape.NEAR_VERTEX)
                 self.line[1] = pos
                 self.line.line_color = color
+                self.lastline.line_color = color
                 self.prevPoint = QPointF()
                 self.current.highlightClear()
             else:
@@ -200,7 +204,7 @@ class Canvas(QWidget):
 
         if ev.button() == Qt.LeftButton:
             if self.drawing():
-                self.handleDrawing(pos)
+                self.handleDrawing(pos, True)
             else:
                 self.selectShapePoint(pos)
                 self.prevPoint = pos
@@ -214,8 +218,8 @@ class Canvas(QWidget):
         if ev.button() == Qt.RightButton:
             menu = self.menus[bool(self.selectedShapeCopy)]
             self.restoreCursor()
-            if not menu.exec_(self.mapToGlobal(ev.pos()))\
-               and self.selectedShapeCopy:
+            if not menu.exec_(self.mapToGlobal(ev.pos())) \
+                    and self.selectedShapeCopy:
                 # Cancel the move by deleting the shadow copy.
                 self.selectedShapeCopy = None
                 self.repaint()
@@ -227,13 +231,13 @@ class Canvas(QWidget):
         elif ev.button() == Qt.LeftButton:
             pos = self.transformPos(ev.pos())
             if self.drawing():
-                self.handleDrawing(pos)
+                self.handleDrawing(pos, False)
 
     def endMove(self, copy=False):
         assert self.selectedShape and self.selectedShapeCopy
         shape = self.selectedShapeCopy
-        #del shape.fill_color
-        #del shape.line_color
+        # del shape.fill_color
+        # del shape.line_color
         if copy:
             self.shapes.append(shape)
             self.selectedShape.selected = False
@@ -251,18 +255,14 @@ class Canvas(QWidget):
             self.setHiding(True)
             self.repaint()
 
-    def handleDrawing(self, pos):
+    def handleDrawing(self, pos, is_press):
         if self.current and self.current.reachMaxPoints() is False:
-            initPos = self.current[0]
-            minX = initPos.x()
-            minY = initPos.y()
-            targetPos = self.line[1]
-            maxX = targetPos.x()
-            maxY = targetPos.y()
-            self.current.addPoint(QPointF(maxX, minY))
-            self.current.addPoint(targetPos)
-            self.current.addPoint(QPointF(minX, maxY))
-            self.finalise()
+            if is_press:
+                self.line[0] = self.line[1]
+                thisPos = self.line[1]
+                self.current.addPoint(thisPos)
+            if self.current.reachMaxPoints():
+                self.finalise()
         elif not self.outOfPixmap(pos):
             self.current = Shape()
             self.current.addPoint(pos)
@@ -323,19 +323,6 @@ class Canvas(QWidget):
         shiftPos = pos - point
         shape.moveVertexBy(index, shiftPos)
 
-        lindex = (index + 1) % 4
-        rindex = (index + 3) % 4
-        lshift = None
-        rshift = None
-        if index % 2 == 0:
-            rshift = QPointF(shiftPos.x(), 0)
-            lshift = QPointF(0, shiftPos.y())
-        else:
-            lshift = QPointF(shiftPos.x(), 0)
-            rshift = QPointF(0, shiftPos.y())
-        shape.moveVertexBy(rindex, rshift)
-        shape.moveVertexBy(lindex, lshift)
-
     def boundedMoveShape(self, shape, pos):
         if self.outOfPixmap(pos):
             return False  # No need to move
@@ -350,7 +337,7 @@ class Canvas(QWidget):
         # relative to the shape, but also results in making it
         # a bit "shaky" when nearing the border and allows it to
         # go outside of the shape's area for some reason. XXX
-        #self.calculateOffsets(self.selectedShape, pos)
+        # self.calculateOffsets(self.selectedShape, pos)
         dp = pos - self.prevPoint
         if dp:
             shape.moveBy(dp)
@@ -416,11 +403,16 @@ class Canvas(QWidget):
         if self.current:
             self.current.paint(p)
             self.line.paint(p)
+            if len(self.current.points) >= 3:
+                self.lastline.points[0] = self.current[0]
+                self.lastline.points[1] = self.line[1]
+                self.lastline.paint(p)
         if self.selectedShapeCopy:
             self.selectedShapeCopy.paint(p)
 
         # Paint rect
         if self.current is not None and len(self.line) == 2:
+            '''
             leftTop = self.line[0]
             rightBottom = self.line[1]
             rectWidth = rightBottom.x() - leftTop.x()
@@ -429,6 +421,8 @@ class Canvas(QWidget):
             brush = QBrush(Qt.BDiagPattern)
             p.setBrush(brush)
             p.drawRect(leftTop.x(), leftTop.y(), rectWidth, rectHeight)
+            '''
+            pass
 
         if self.drawing() and not self.prevPoint.isNull() and not self.outOfPixmap(self.prevPoint):
             p.setPen(QColor(0, 0, 0))
@@ -480,8 +474,8 @@ class Canvas(QWidget):
         self.update()
 
     def closeEnough(self, p1, p2):
-        #d = distance(p1 - p2)
-        #m = (p1-p2).manhattanLength()
+        # d = distance(p1 - p2)
+        # m = (p1-p2).manhattanLength()
         # print "d %.2f, m %d, %.2f" % (d, m, d - m)
         return distance(p1 - p2) < self.epsilon
 
@@ -613,15 +607,15 @@ class Canvas(QWidget):
         self.repaint()
 
     def moveOutOfBound(self, step):
-        points = [p1+p2 for p1, p2 in zip(self.selectedShape.points, [step]*4)]
+        points = [p1 + p2 for p1, p2 in zip(self.selectedShape.points, [step] * 4)]
         return True in map(self.outOfPixmap, points)
 
-    def setLastLabel(self, text, line_color  = None, fill_color = None):
+    def setLastLabel(self, text, line_color=None, fill_color=None):
         assert text
         self.shapes[-1].label = text
         if line_color:
             self.shapes[-1].line_color = line_color
-        
+
         if fill_color:
             self.shapes[-1].fill_color = fill_color
 
