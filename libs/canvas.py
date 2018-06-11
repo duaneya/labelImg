@@ -19,8 +19,6 @@ CURSOR_GRAB = Qt.OpenHandCursor
 
 
 # class Canvas(QGLWidget):
-
-
 class Canvas(QWidget):
     zoomRequest = pyqtSignal(int)
     scrollRequest = pyqtSignal(int, int)
@@ -28,6 +26,8 @@ class Canvas(QWidget):
     selectionChanged = pyqtSignal(bool)
     shapeMoved = pyqtSignal()
     drawingPolygon = pyqtSignal(bool)
+
+    nextImage = pyqtSignal()
 
     CREATE, EDIT = list(range(2))
 
@@ -199,21 +199,6 @@ class Canvas(QWidget):
             self.hVertex, self.hShape = None, None
             self.overrideCursor(CURSOR_DEFAULT)
 
-    def mousePressEvent(self, ev):
-        pos = self.transformPos(ev.pos())
-
-        if ev.button() == Qt.LeftButton:
-            if self.drawing():
-                self.handleDrawing(pos, True)
-            else:
-                self.selectShapePoint(pos)
-                self.prevPoint = pos
-                self.repaint()
-        elif ev.button() == Qt.RightButton and self.editing():
-            self.selectShapePoint(pos)
-            self.prevPoint = pos
-            self.repaint()
-
     def mouseReleaseEvent(self, ev):
         if ev.button() == Qt.RightButton:
             menu = self.menus[bool(self.selectedShapeCopy)]
@@ -277,12 +262,31 @@ class Canvas(QWidget):
     def canCloseShape(self):
         return self.drawing() and self.current and len(self.current) > 2
 
+    def mousePressEvent(self, ev):
+        pos = self.transformPos(ev.pos())
+        if ev.button() == Qt.LeftButton:
+            if self.drawing():
+                self.handleDrawing(pos, True)
+            else:
+                self.selectShapePoint(pos)
+                self.prevPoint = pos
+                self.repaint()
+        elif ev.button() == Qt.RightButton and self.editing():
+            self.selectShapePoint(pos)
+            self.prevPoint = pos
+            self.repaint()
+
     def mouseDoubleClickEvent(self, ev):
         # We need at least 4 points here, since the mousePress handler
         # adds an extra one before this handler is called.
-        if self.canCloseShape() and len(self.current) > 3:
-            self.current.popPoint()
-            self.finalise()
+        # if self.canCloseShape() and len(self.current) > 3:
+        #    self.current.popPoint()
+        #    self.finalise()
+        # if self.drawing():
+        #    return
+        # else:
+        self.abort()
+        self.nextImage.emit()
 
     def selectShape(self, shape):
         self.deSelectShape()
@@ -472,6 +476,16 @@ class Canvas(QWidget):
         self.setHiding(False)
         self.newShape.emit()
         self.update()
+
+    def abort(self):
+        self.drawingPolygon.emit(False)
+        if self.current:
+            self.current.close()
+        self.current = None
+        self.setHiding(False)
+        # self.newShape.emit()
+        self.update()
+        pass
 
     def closeEnough(self, p1, p2):
         # d = distance(p1 - p2)

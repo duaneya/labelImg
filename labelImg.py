@@ -96,6 +96,11 @@ class MainWindow(QMainWindow, WindowMixin):
         super(MainWindow, self).__init__()
         self.setWindowTitle(__appname__)
 
+        self.timer = QTimer()
+        self.timer.setInterval(QApplication.doubleClickInterval() + 100)
+        self.timer.setSingleShot(True)
+        self.timer.timeout.connect(self.timeout)
+
         # Load setting in the main thread
         self.settings = Settings()
         self.settings.load()
@@ -190,6 +195,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
         self.canvas = Canvas(parent=self)
         self.canvas.zoomRequest.connect(self.zoomRequest)
+        self.canvas.nextImage.connect(self.openNextImg)
 
         scroll = QScrollArea()
         scroll.setWidget(self.canvas)
@@ -245,7 +251,7 @@ class MainWindow(QMainWindow, WindowMixin):
                       'Ctrl+S', 'save', u'Save labels to file', enabled=False)
 
         save_format = action('&PascalVOC', self.change_format,
-                             'Ctrl+', 'format_voc', u'Change save format', enabled=False)
+                             'Ctrl+', 'format_lpr', u'Change save format', enabled=False)
 
         saveAs = action('&Save As', self.saveFileAs,
                         'Ctrl+Shift+S', 'save-as', u'Save labels to a different file', enabled=False)
@@ -488,6 +494,9 @@ class MainWindow(QMainWindow, WindowMixin):
         # Open Dir if deafult file
         if self.filePath and os.path.isdir(self.filePath):
             self.openDirDialog(dirpath=self.filePath)
+
+    def timeout(self):
+        self.createShape()
 
     ## Support Functions ##
     def set_format(self, save_format):
@@ -1292,6 +1301,8 @@ class MainWindow(QMainWindow, WindowMixin):
 
         if filename:
             self.loadFile(filename)
+
+        self.timer.start()
 
     def openFile(self, _value=False):
         if not self.mayContinue():
