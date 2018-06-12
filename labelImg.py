@@ -225,6 +225,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
         # Actions
         action = partial(newAction, self)
+        cancel = action('&Cancel', self.cancel, 'Ctrl+C', 'cancel', u'Cancel create shape')
         quit = action('&Quit', self.close,
                       'Ctrl+Q', 'quit', u'Quit application')
 
@@ -348,7 +349,7 @@ class MainWindow(QMainWindow, WindowMixin):
             self.popLabelListMenu)
 
         # Store actions for further handling.
-        self.actions = struct(save=save, save_format=save_format, saveAs=saveAs, open=open, close=close,
+        self.actions = struct(cancel=cancel, save=save, save_format=save_format, saveAs=saveAs, open=open, close=close,
                               resetAll=resetAll,
                               lineColor=color1, create=create, delete=delete, edit=edit, copy=copy,
                               createMode=createMode, editMode=editMode, advancedMode=advancedMode,
@@ -361,7 +362,7 @@ class MainWindow(QMainWindow, WindowMixin):
                               beginner=(), advanced=(),
                               editMenu=(edit, copy, delete,
                                         None, color1),
-                              beginnerContext=(create, openNextImg, openPrevImg, edit, copy, delete),
+                              beginnerContext=(create, openNextImg, openPrevImg, cancel, edit, copy, delete),
                               advancedContext=(editMode, edit, copy,
                                                delete, shapeLineColor, shapeFillColor),
                               onLoadActive=(
@@ -500,6 +501,10 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def timeout(self):
         self.createShape()
+
+    def cancel(self):
+        self.canvas.abort()
+        # self.canvas.shapes
 
     ## Support Functions ##
     def set_format(self, save_format):
@@ -693,8 +698,9 @@ class MainWindow(QMainWindow, WindowMixin):
         if not self.canvas.editing():
             return
         item = self.currentItem()
-        text = self.labelDialog.popUp(item.text())
-        if text is not None:
+        if item is not None:
+            text = self.labelDialog.popUp(item.text())
+            # if text is not None:
             item.setText(text)
             item.setBackground(generateColorByText(text))
             self.setDirty()
@@ -751,6 +757,8 @@ class MainWindow(QMainWindow, WindowMixin):
         self.actions.shapeFillColor.setEnabled(selected)
 
     def addLabel(self, shape):
+        if shape is None:
+            return
         shape.paintLabel = self.paintLabelsOption.isChecked()
         item = HashableQListWidgetItem(shape.label)
         item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
