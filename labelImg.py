@@ -465,8 +465,9 @@ class MainWindow(QMainWindow, WindowMixin):
         Shape.line_color = self.lineColor = QColor(settings.get(SETTING_LINE_COLOR, DEFAULT_LINE_COLOR))
         Shape.fill_color = self.fillColor = QColor(settings.get(SETTING_FILL_COLOR, DEFAULT_FILL_COLOR))
         self.canvas.setDrawingColor(self.lineColor)
+
         # Add chris
-        Shape.difficult = self.difficult
+        # Shape.difficult = self.difficult
 
         def xbool(x):
             if isinstance(x, QVariant):
@@ -717,15 +718,18 @@ class MainWindow(QMainWindow, WindowMixin):
     def btnstate(self, item=None):
         """ Function to handle difficult examples
         Update on each object """
+        '''
         if not self.canvas.editing():
             return
 
         item = self.currentItem()
         if not item:  # If not selected Item, take the first one
             item = self.labelList.item(self.labelList.count() - 1)
+        '''
+        self.difficult = self.diffcButton.isChecked()
+        self.setDirty()
 
-        difficult = self.diffcButton.isChecked()
-
+        '''
         try:
             shape = self.itemsToShapes[item]
         except:
@@ -739,6 +743,7 @@ class MainWindow(QMainWindow, WindowMixin):
                 self.canvas.setShapeVisible(shape, item.checkState() == Qt.Checked)
         except:
             pass
+        '''
 
     # React to canvas signals.
     def shapeSelectionChanged(self, selected=False):
@@ -781,11 +786,10 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def loadLabels(self, shapes):
         s = []
-        for label, points, line_color, fill_color, difficult in shapes:
+        for label, points, line_color, fill_color in shapes:
             shape = Shape(label=label)
             for x, y in points:
                 shape.addPoint(QPointF(x, y))
-            shape.difficult = difficult
             shape.close()
             s.append(shape)
 
@@ -815,7 +819,7 @@ class MainWindow(QMainWindow, WindowMixin):
                         fill_color=s.fill_color.getRgb(),
                         points=[(p.x(), p.y()) for p in s.points],
                         # add chris
-                        difficult=s.difficult)
+                        )
 
         shapes = [format_shape(shape) for shape in self.canvas.shapes]
         # Can add differrent annotation formats here
@@ -824,7 +828,7 @@ class MainWindow(QMainWindow, WindowMixin):
                 if ustr(annotationFilePath[-5:]) != ".json":
                     annotationFilePath += JSON_EXT
                 print('Img: ' + self.filePath + ' -> Its json: ' + annotationFilePath)
-                self.labelFile.saveLPRFormat(annotationFilePath, shapes, self.filePath, self.imageData,
+                self.labelFile.saveLPRFormat(annotationFilePath, shapes, self.difficult, self.filePath, self.imageData,
                                              self.lineColor.getRgb(), self.fillColor.getRgb())
             elif self.usingPascalVocFormat is True:
                 if ustr(annotationFilePath[-4:]) != ".xml":
@@ -858,7 +862,7 @@ class MainWindow(QMainWindow, WindowMixin):
             self.canvas.selectShape(self.itemsToShapes[item])
             shape = self.itemsToShapes[item]
             # Add Chris
-            self.diffcButton.setChecked(shape.difficult)
+            # self.diffcButton.setChecked(shape.difficult)
 
     def labelItemChanged(self, item):
         shape = self.itemsToShapes[item]
@@ -1459,6 +1463,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
         tLprParseReader = LPRReader(jsonPath)
         shapes = tLprParseReader.getShapes()
+        self.difficult = tLprParseReader.difficult
         self.loadLabels(shapes)
         self.canvas.verified = tLprParseReader.verified
 

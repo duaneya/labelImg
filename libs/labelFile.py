@@ -30,7 +30,7 @@ class LabelFile(object):
         self.imageData = None
         self.verified = False
 
-    def saveLPRFormat(self, filename, shapes, imagePath, imageData,
+    def saveLPRFormat(self, filename, shapes, difficult, imagePath, imageData,
                       lineColor=None, fillColor=None, databaseSrc=None):
         imgFolderPath = os.path.dirname(imagePath)
         imgFolderName = os.path.split(imgFolderPath)[-1]
@@ -41,11 +41,12 @@ class LabelFile(object):
                       1 if image.isGrayscale() else 3]
         writer = LPRWriter(imgFolderName, imgFileName, imageShape, localImgPath=imagePath)
         writer.verified = self.verified
+        writer.difficult = difficult
         for shape in shapes:
             points = shape['points']
             label = shape['label']
-            difficult = int(shape['difficult'])
-            writer.addBndBox(points, label, difficult)
+            # difficult = int(shape['difficult'])
+            writer.addBndBox(points, label)
 
         writer.save(targetFile=filename)
         return
