@@ -12,7 +12,6 @@ BB = QDialogButtonBox
 
 
 class LabelDialog(QDialog):
-
     def __init__(self, text="Enter object label", parent=None, listItem=None):
         super(LabelDialog, self).__init__(parent)
 
@@ -20,6 +19,7 @@ class LabelDialog(QDialog):
         self.edit.setText(text)
         self.edit.setValidator(labelValidator())
         self.edit.editingFinished.connect(self.postProcess)
+        self.listItem = listItem
 
         model = QStringListModel()
         model.setStringList(listItem)
@@ -44,6 +44,11 @@ class LabelDialog(QDialog):
             layout.addWidget(self.listWidget)
 
         self.setLayout(layout)
+
+    def select(self, index):
+        self.listWidget.setCurrentRow(index)
+        # print(self.listItem[index],index)
+        # self.edit.setText(self.listItem[index])
 
     def validate(self):
         try:

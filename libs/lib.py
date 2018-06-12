@@ -1,6 +1,7 @@
 from math import sqrt
 from libs.ustr import ustr
 import hashlib
+
 try:
     from PyQt5.QtGui import *
     from PyQt5.QtCore import *
@@ -60,7 +61,6 @@ def labelValidator():
 
 
 class struct(object):
-
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
 
@@ -75,9 +75,7 @@ def fmtShortcut(text):
 
 
 def generateColorByText(text):
-    s = str(ustr(text))
-    hashCode = int(hashlib.sha256(s.encode('utf-8')).hexdigest(), 16)
-    r = int((hashCode / 255) % 255)
-    g = int((hashCode / 65025)  % 255)
-    b = int((hashCode / 16581375)  % 255)
-    return QColor(r, g, b, 100)
+    mapp = {'yellow': (255, 255, 0), 'blue': (0, 0, 255), 'green': (0, 255, 0),
+            'black': (0, 0, 0), 'white': (255, 255, 255), 'new': (255, 0, 0)}
+    rgb = mapp.get(text, (0, 255, 255))
+    return QColor(rgb[0], rgb[1], rgb[2], 100)

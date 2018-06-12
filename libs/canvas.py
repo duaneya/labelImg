@@ -1,3 +1,7 @@
+import cv2
+import numpy as np
+from scipy import misc
+
 try:
     from PyQt5.QtGui import *
     from PyQt5.QtCore import *
@@ -18,16 +22,80 @@ CURSOR_MOVE = Qt.ClosedHandCursor
 CURSOR_GRAB = Qt.OpenHandCursor
 
 
+def order_points(pts):
+    # initialzie a list of coordinates that will be ordered
+    # such that the first entry in the list is the top-left,
+    # the second entry is the top-right, the third is the
+    # bottom-right, and the fourth is the bottom-left
+    rect = np.zeros((4, 2), dtype="float32")
+
+    # the top-left point will have the smallest sum, whereas
+    # the bottom-right point will have the largest sum
+    s = pts.sum(axis=1)
+    rect[0] = pts[np.argmin(s)]
+    rect[2] = pts[np.argmax(s)]
+
+    # now, compute the difference between the points, the
+    # top-right point will have the smallest difference,
+    # whereas the bottom-left will have the largest difference
+    diff = np.diff(pts, axis=1)
+    rect[1] = pts[np.argmin(diff)]
+    rect[3] = pts[np.argmax(diff)]
+
+    # return the ordered coordinates
+    return rect
+
+
+def four_point_transform(image, pts):
+    # obtain a consistent order of the points and unpack them
+    # individually
+    rect = order_points(pts)
+    (tl, tr, br, bl) = rect
+
+    # compute the width of the new image, which will be the
+    # maximum distance between bottom-right and bottom-left
+    # x-coordiates or the top-right and top-left x-coordinates
+    widthA = np.sqrt(((br[0] - bl[0]) ** 2) + ((br[1] - bl[1]) ** 2))
+    widthB = np.sqrt(((tr[0] - tl[0]) ** 2) + ((tr[1] - tl[1]) ** 2))
+    maxWidth = max(int(widthA), int(widthB))
+
+    # compute the height of the new image, which will be the
+    # maximum distance between the top-right and bottom-right
+    # y-coordinates or the top-left and bottom-left y-coordinates
+    heightA = np.sqrt(((tr[0] - br[0]) ** 2) + ((tr[1] - br[1]) ** 2))
+    heightB = np.sqrt(((tl[0] - bl[0]) ** 2) + ((tl[1] - bl[1]) ** 2))
+    maxHeight = max(int(heightA), int(heightB))
+
+    # now that we have the dimensions of the new image, construct
+    # the set of destination points to obtain a "birds eye view",
+    # (i.e. top-down view) of the image, again specifying points
+    # in the top-left, top-right, bottom-right, and bottom-left
+    # order
+    dst = np.array([
+        [0, 0],
+        [maxWidth - 1, 0],
+        [maxWidth - 1, maxHeight - 1],
+        [0, maxHeight - 1]], dtype="float32")
+
+    # compute the perspective transform matrix and then apply it
+    M = cv2.getPerspectiveTransform(rect, dst)
+    warped = cv2.warpPerspective(image, M, (maxWidth, maxHeight))
+
+    # return the warped image
+    return warped
+
+
 # class Canvas(QGLWidget):
 class Canvas(QWidget):
     zoomRequest = pyqtSignal(int)
     scrollRequest = pyqtSignal(int, int)
-    newShape = pyqtSignal()
+    newShape = pyqtSignal(int)
     selectionChanged = pyqtSignal(bool)
     shapeMoved = pyqtSignal()
     drawingPolygon = pyqtSignal(bool)
 
     nextImage = pyqtSignal()
+    drawComplete = pyqtSignal()
 
     CREATE, EDIT = list(range(2))
 
@@ -285,8 +353,13 @@ class Canvas(QWidget):
         # if self.drawing():
         #    return
         # else:
-        self.abort()
-        self.nextImage.emit()
+        if ev.button() == Qt.LeftButton:
+            self.abort()
+            self.nextImage.emit()
+        elif ev.button() == Qt.RightButton:
+            pass
+            # self.abort()
+            # self.prevImage.emit()
 
     def selectShape(self, shape):
         self.deSelectShape()
@@ -462,6 +535,58 @@ class Canvas(QWidget):
         w, h = self.pixmap.width(), self.pixmap.height()
         return not (0 <= p.x() <= w and 0 <= p.y() <= h)
 
+    def getPlateType(self):
+        image = self.pixmap.toImage()
+        size = image.size()
+        buffer = image.bits()
+        buffer.setsize(size.height() * size.width() * 4)
+        img = np.frombuffer(buffer, dtype=np.uint8).reshape(size.height(), size.width(), 4)
+        rgb = np.zeros((size.height(), size.width(), 3))
+        rgb[:, :, 0] = img[:, :, 2]
+        rgb[:, :, 1] = img[:, :, 1]
+        rgb[:, :, 2] = img[:, :, 0]
+        points = self.current.points
+        current = np.array([[points[0].x(), points[0].y()], [points[1].x(), points[1].y()],
+                            [points[2].x(), points[2].y()], [points[3].x(), points[3].y()]])
+        wrapped = four_point_transform(rgb, current)
+        wrapped = wrapped.astype(np.int32)
+        h, w, c = wrapped.shape
+        top = wrapped[:h // 8, :, :]
+        bottom = wrapped[h // 8 * 5:, :, :]
+        yellow = np.mean(wrapped[:, :, 0] + wrapped[:, :, 1] - 2 * wrapped[:, :, 2])
+        blue = -yellow
+        green = np.mean(2 * wrapped[:, :, 1] - wrapped[:, :, 0] - wrapped[:, :, 2])
+        std = np.mean(np.std(wrapped, axis=2))
+        black = np.mean(255 - np.mean(wrapped, axis=2))
+        white = np.mean(wrapped)
+        colors = [yellow, blue, green, black, white]
+        #print(colors, np.mean(top), std)
+        names = ['yellow', 'blue', 'green', 'black', 'white', 'new']
+        if std > 10.0:
+            type = np.argmax(colors[:3])
+            if names[type] == 'green':
+                top_std = np.mean(np.std(top, axis=2))
+                bottom_std = np.mean(np.std(bottom, axis=2))
+                #print(top_std, bottom_std)
+                if bottom_std - top_std > 10:
+                    type = 5
+        else:  # white or black
+            gray = np.mean(wrapped, axis=2)
+            w, h = gray.shape
+            h = int(100.0 / w * h)
+            gray = cv2.resize(gray, (h, 100))
+            closed = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, kernel=np.ones((11, 11), dtype=np.int32))
+            gray_value = np.mean(gray)
+            closed_value = np.mean(closed)
+            #print(gray_value, closed_value)
+            # misc.imshow(np.vstack((gray, closed)))
+            if closed_value - gray_value > 12:
+                type = 4
+            else:
+                type = 3
+        # print(names[type])
+        return type
+
     def finalise(self):
         assert self.current
         if self.current.points[0] == self.current.points[-1]:
@@ -472,10 +597,12 @@ class Canvas(QWidget):
 
         self.current.close()
         self.shapes.append(self.current)
+        type = self.getPlateType()
         self.current = None
         self.setHiding(False)
-        self.newShape.emit()
+        self.newShape.emit(type)
         self.update()
+        self.drawComplete.emit()
 
     def abort(self):
         self.drawingPolygon.emit(False)
@@ -485,7 +612,7 @@ class Canvas(QWidget):
         self.setHiding(False)
         # self.newShape.emit()
         self.update()
-        pass
+        self.drawComplete.emit()
 
     def closeEnough(self, p1, p2):
         # d = distance(p1 - p2)

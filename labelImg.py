@@ -97,7 +97,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.setWindowTitle(__appname__)
 
         self.timer = QTimer()
-        self.timer.setInterval(QApplication.doubleClickInterval() + 100)
+        self.timer.setInterval(QApplication.doubleClickInterval() + 50)
         self.timer.setSingleShot(True)
         self.timer.timeout.connect(self.timeout)
 
@@ -131,6 +131,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
         # Main widgets and related state.
         self.labelDialog = LabelDialog(parent=self, listItem=self.labelHist)
+        # self.labelDialog.setModal(False)
 
         self.itemsToShapes = {}
         self.shapesToItems = {}
@@ -196,6 +197,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.canvas = Canvas(parent=self)
         self.canvas.zoomRequest.connect(self.zoomRequest)
         self.canvas.nextImage.connect(self.openNextImg)
+        # self.canvas.drawComplete.connect(self.timer.start)
 
         scroll = QScrollArea()
         scroll.setWidget(self.canvas)
@@ -339,6 +341,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
         # Label list context menu.
         labelMenu = QMenu()
+        labelMenu.setWindowModality(Qt.NonModal)
         addActions(labelMenu, (edit, delete))
         self.labelList.setContextMenuPolicy(Qt.CustomContextMenu)
         self.labelList.customContextMenuRequested.connect(
@@ -358,8 +361,8 @@ class MainWindow(QMainWindow, WindowMixin):
                               beginner=(), advanced=(),
                               editMenu=(edit, copy, delete,
                                         None, color1),
-                              beginnerContext=(create, edit, copy, delete),
-                              advancedContext=(createMode, editMode, edit, copy,
+                              beginnerContext=(create, openNextImg, openPrevImg, edit, copy, delete),
+                              advancedContext=(editMode, edit, copy,
                                                delete, shapeLineColor, shapeFillColor),
                               onLoadActive=(
                                   close, create, createMode, editMode),
@@ -860,7 +863,7 @@ class MainWindow(QMainWindow, WindowMixin):
             self.canvas.setShapeVisible(shape, item.checkState() == Qt.Checked)
 
     # Callback functions:
-    def newShape(self):
+    def newShape(self, type):
         """Pop-up and give focus to the label editor.
 
         position MUST be in global coordinates.
@@ -869,12 +872,12 @@ class MainWindow(QMainWindow, WindowMixin):
             if len(self.labelHist) > 0:
                 self.labelDialog = LabelDialog(
                     parent=self, listItem=self.labelHist)
-
+                self.labelDialog.select(type)
             # Sync single class mode from PR#106
             if self.singleClassMode.isChecked() and self.lastLabel:
                 text = self.lastLabel
             else:
-                text = self.labelDialog.popUp(text=self.prevLabelText)
+                text = self.labelDialog.popUp(text=self.labelHist[type])
                 self.lastLabel = text
         else:
             text = self.defaultLabelTextLine.text()
