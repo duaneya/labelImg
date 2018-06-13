@@ -1035,6 +1035,8 @@ class MainWindow(QMainWindow, WindowMixin):
                 self.imageData = read(unicodeFilePath, None)
                 self.labelFile = None
                 self.canvas.verified = False
+                self.difficult = False
+                self.diffcButton.setChecked(False)
 
             image = QImage.fromData(self.imageData)
             if image.isNull():
@@ -1464,6 +1466,7 @@ class MainWindow(QMainWindow, WindowMixin):
         tLprParseReader = LPRReader(jsonPath)
         shapes = tLprParseReader.getShapes()
         self.difficult = tLprParseReader.difficult
+        self.diffcButton.setChecked(self.difficult)
         self.loadLabels(shapes)
         self.canvas.verified = tLprParseReader.verified
 

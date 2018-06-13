@@ -552,22 +552,22 @@ class Canvas(QWidget):
         wrapped = wrapped.astype(np.int32)
         h, w, c = wrapped.shape
         top = wrapped[:h // 8, :, :]
-        bottom = wrapped[h // 8 * 5:, :, :]
+        bottom = wrapped[h // 2:, :, :]
         yellow = np.mean(wrapped[:, :, 0] + wrapped[:, :, 1] - 2 * wrapped[:, :, 2])
         blue = -yellow
         green = np.mean(2 * wrapped[:, :, 1] - wrapped[:, :, 0] - wrapped[:, :, 2])
         std = np.mean(np.std(wrapped, axis=2))
-        black = np.mean(255 - np.mean(wrapped, axis=2))
         white = np.mean(wrapped)
+        black = 255 - white
         colors = [yellow, blue, green, black, white]
-        #print(colors, np.mean(top), std)
+        print(colors, np.mean(top), std)
         names = ['yellow', 'blue', 'green', 'black', 'white', 'new']
-        if std > 10.0:
+        if std > 10.0:  # colorful plate
             type = np.argmax(colors[:3])
             if names[type] == 'green':
                 top_std = np.mean(np.std(top, axis=2))
                 bottom_std = np.mean(np.std(bottom, axis=2))
-                #print(top_std, bottom_std)
+                print(top_std, bottom_std)
                 if bottom_std - top_std > 10:
                     type = 5
         else:  # white or black
@@ -575,16 +575,20 @@ class Canvas(QWidget):
             w, h = gray.shape
             h = int(100.0 / w * h)
             gray = cv2.resize(gray, (h, 100))
-            closed = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, kernel=np.ones((11, 11), dtype=np.int32))
+            closed = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, kernel=np.ones((15, 15), dtype=np.int32))
+            open = cv2.morphologyEx(gray, cv2.MORPH_OPEN, kernel=np.ones((15, 15), dtype=np.int32))
             gray_value = np.mean(gray)
             closed_value = np.mean(closed)
-            #print(gray_value, closed_value)
-            # misc.imshow(np.vstack((gray, closed)))
-            if closed_value - gray_value > 12:
+            open_value = np.mean(open)
+            if closed_value - gray_value > gray_value - open_value:
                 type = 4
             else:
                 type = 3
+            print(type)
+            print(gray_value, closed_value, open_value)
+            misc.imshow(np.vstack((closed, open)))
         # print(names[type])
+
         return type
 
     def finalise(self):
