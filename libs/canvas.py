@@ -560,14 +560,14 @@ class Canvas(QWidget):
         white = np.mean(wrapped)
         black = 255 - white
         colors = [yellow, blue, green, black, white]
-        print(colors, np.mean(top), std)
+        #print(colors, np.mean(top), std)
         names = ['yellow', 'blue', 'green', 'black', 'white', 'new']
         if std > 10.0:  # colorful plate
             type = np.argmax(colors[:3])
             if names[type] == 'green':
                 top_std = np.mean(np.std(top, axis=2))
                 bottom_std = np.mean(np.std(bottom, axis=2))
-                print(top_std, bottom_std)
+                #print(top_std, bottom_std)
                 if bottom_std - top_std > 10:
                     type = 5
         else:  # white or black
@@ -584,9 +584,9 @@ class Canvas(QWidget):
                 type = 4
             else:
                 type = 3
-            print(type)
-            print(gray_value, closed_value, open_value)
-            misc.imshow(np.vstack((closed, open)))
+            #print(type)
+            #print(gray_value, closed_value, open_value)
+            #misc.imshow(np.vstack((closed, open)))
         # print(names[type])
 
         return type

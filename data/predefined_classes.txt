@@ -4,3 +4,6 @@ green
 black
 white
 new
+hongkong
+macao
+other
