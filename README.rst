@@ -1,18 +1,12 @@
 LabelImg
 ========
 
-.. image:: https://img.shields.io/pypi/v/labelimg.svg
-        :target: https://pypi.python.org/pypi/labelimg
 
-.. image:: https://img.shields.io/travis/tzutalin/labelImg.svg
-        :target: https://travis-ci.org/tzutalin/labelImg
+基于LabelImg修改而来的任意四边形目标标注软件。
 
-LabelImg is a graphical image annotation tool.
+Python + Qt 编写， 支持Linux、Windows、MacOS。
 
-It is written in Python and uses Qt for its graphical interface.
-
-Annotations are saved as XML files in PASCAL VOC format, the format used
-by `ImageNet <http://www.image-net.org/>`__.
+标注结果以json格式保存。
 
 .. image:: https://raw.githubusercontent.com/tzutalin/labelImg/master/demo/demo3.jpg
      :alt: Demo Image
